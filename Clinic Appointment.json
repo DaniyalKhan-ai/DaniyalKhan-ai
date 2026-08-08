@@ -1,0 +1,624 @@
+{
+  "name": "Clinic Appointment",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "54a6fcf2-4734-4f74-be9b-c721d77fb17c",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -496,
+        -208
+      ],
+      "id": "28a99d05-b27b-4d8a-b2b9-a0d41ede7c13",
+      "name": "Webhook",
+      "webhookId": "54a6fcf2-4734-4f74-be9b-c721d77fb17c"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Webhook se aane wala data format kar rahe hain\nreturn {\n  json: {\n    patientName: $json.body.name || $json.body.patientName,\n    email: $json.body.email,\n    appointmentDate: $json.body.appointmentDate, // Format: YYYY-MM-DD\n    status: \"Confirmed\"\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        -208
+      ],
+      "id": "95b58029-1f3e-43ad-988e-701b537156cf",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds",
+          "mode": "list",
+          "cachedResultName": "Clinic sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            " Patient Name": "={{ $json.patientName }}",
+            " Email": "={{ $json.email }}",
+            " Appointment Date": "={{ $json.appointmentDate }}",
+            " Status": "={{ $json.status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": " Patient Name",
+              "displayName": " Patient Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Email",
+              "displayName": " Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Appointment Date",
+              "displayName": " Appointment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Status",
+              "displayName": " Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        0,
+        -208
+      ],
+      "id": "0d37c0f8-0767-4dea-9ca3-23e20f80d988",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pEh5yv2IyLoILlFW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json[' Email'] }}",
+        "subject": "Appointment Confirmation - Zara Medical Clinic",
+        "message": "=Hi{{ $json[' Patient Name'] }},\nYour Appointment has been successfully booked for {{ $json[' Appointment Date'] }}.\nThank You\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        272,
+        -208
+      ],
+      "id": "1feb2091-47cd-45a8-9200-c8c98aa93580",
+      "name": "Send a message",
+      "webhookId": "126526b9-6303-4bc0-bc03-ff2f72b61cbe",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Z6XPJZo7QHT4ONT0",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -496,
+        80
+      ],
+      "id": "21b20f05-9e1e-47cb-b413-efd45b06c67e",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds",
+          "mode": "list",
+          "cachedResultName": "Clinic sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -272,
+        80
+      ],
+      "id": "13bee09c-2683-42e1-8bb2-b23fe5fdc1dd",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pEh5yv2IyLoILlFW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b989f303-a08d-4d39-bdd6-dfe8bfc14262",
+              "leftValue": "={{ $json[' Appointment Date'] }}",
+              "rightValue": "={{ $now.setZone('America/New_York').plus({ days: 1 }).toFormat('yyyy-MM-dd') }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "082cf8a6-df98-4458-88a5-87d99af54433",
+              "leftValue": "={{ $json[' Status'] }}",
+              "rightValue": "Reminder Sent",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -48,
+        80
+      ],
+      "id": "3047436d-69c8-4196-be16-0682eb0a2338",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json[' Email'] }}",
+        "subject": "Appointment Reminder for Tommorow - Zara Medical Clinic",
+        "message": "=Hi,{{ $json[' Patient Name'] }}This is a reminder for your appointment scheduled for tomorrow,{{ $json[' Appointment Date'] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        -16
+      ],
+      "id": "47840dc1-197a-41de-a6f2-2cb29feedbd4",
+      "name": "Send a message1",
+      "webhookId": "e0053c4e-13b8-4a79-966a-6f6e88b1572f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Z6XPJZo7QHT4ONT0",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json[' Email'] }}",
+        "subject": "Upcoming Appointment Update",
+        "message": "=Hi{{ $json[' Patient Name'] }}, your Appointment date is\n{{ $json[' Appointment Date'] }}.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        176
+      ],
+      "id": "cb3fb2b9-ba12-4339-9c0a-302e2da57d1f",
+      "name": "Send a message2",
+      "webhookId": "af681202-c06b-4a14-9088-9c6ede24a1b0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Z6XPJZo7QHT4ONT0",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds",
+          "mode": "list",
+          "cachedResultName": "Clinic sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Get row(s) in sheet').item.json.row_number }}",
+            " Status": "Reminder Sent"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": " Patient Name",
+              "displayName": " Patient Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": " Email",
+              "displayName": " Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": " Appointment Date",
+              "displayName": " Appointment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": " Status",
+              "displayName": " Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        400,
+        -16
+      ],
+      "id": "2be54fad-9fc2-4c48-901f-52650e0505d7",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pEh5yv2IyLoILlFW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds",
+          "mode": "list",
+          "cachedResultName": "Clinic sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jZZFiDsBGCgFVjEXk_GzOc0aUuNYD7e4_FVqNrbf3Ds/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Get row(s) in sheet').item.json.row_number }}",
+            " Status": "={{ $('Get row(s) in sheet').item.json[' Status'] }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": " Patient Name",
+              "displayName": " Patient Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": " Email",
+              "displayName": " Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": " Appointment Date",
+              "displayName": " Appointment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": " Status",
+              "displayName": " Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        400,
+        176
+      ],
+      "id": "3c222dff-0515-4306-a178-388f74447da7",
+      "name": "Update row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pEh5yv2IyLoILlFW",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5678",
+            "connection": "keep-alive",
+            "content-length": "83",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36 Edg/151.0.0.0",
+            "sec-ch-ua": "\"Not=A?Brand\";v=\"99\", \"Microsoft Edge\";v=\"151\", \"Chromium\";v=\"151\"",
+            "content-type": "application/json",
+            "sec-ch-ua-mobile": "?0",
+            "accept": "*/*",
+            "origin": "null",
+            "sec-fetch-site": "cross-site",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-dest": "empty",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "en-US,en;q=0.9"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "name": "Rasheed",
+            "email": "asifminhas755@gmail.com",
+            "appointmentDate": "2026-08-10"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/54a6fcf2-4734-4f74-be9b-c721d77fb17c",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message2": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "3c78898a-9771-47ee-8caa-561657620273",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0bb20cca3ecd727dd03962442e734259d393dc07e501270ddff69918314f4e07"
+  },
+  "nodeGroups": [],
+  "id": "59SyU0ypgCMg0IOk",
+  "tags": []
+}
