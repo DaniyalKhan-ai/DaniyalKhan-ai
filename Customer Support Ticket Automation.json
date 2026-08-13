@@ -1,0 +1,869 @@
+{
+  "name": "Customer Support Ticket Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 🎫 Customer Support Ticket Automation\n\nYe workflow customer ki support email ko apne aap sambhalta hai. Maine ise aise banaya:\n\n1. **Ticket aata hai** (Webhook) — customer ka naam, email, subject aur message.\n2. **Ticket ID banta hai** (Code) — har ticket ko ek unique number aur time milta hai.\n3. **Purana ticket check** — dekhta hai ke yehi customer yehi masla pehle to nahi bhej chuka (duplicate).\n4. **AI sochta hai** (Google Gemini) — batata hai: asli / spam / unclear, kis baare mein hai (intent), mood (sentiment), kitna zaroori (urgency), chhota summary, aur ek tayyar jawab.\n5. **Sahi rah chunta hai** (Switch):\n   • Asli customer → agar bohat zaroori ya ghussay mein hai to **manager ko alert** jata hai + customer ko jawab.\n   • Warna seedha customer ko jawab.\n   • Spam / Unclear → apna apna jawab.\n6. **Jawab email** (Gmail) — customer ko personalized reply chala jata hai.\n7. **Record rakhta hai** (Google Sheet) — har ticket ki poori detail + status (New / In Progress / Replied / Escalated / Spam) save ho jati hai.\n\nAage chal kar WhatsApp ya Slack bhi asaani se add ho sakta hai.",
+        "height": 520,
+        "width": 460
+      },
+      "id": "0ba0a365-85fd-4135-a4d6-ea43d4df394d",
+      "name": "How this workflow works",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -288
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "459ff33f-e739-4c19-b6ad-cbd760553316",
+        "options": {}
+      },
+      "id": "6eb5227b-de89-47f3-81de-ba23d8d4451f",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        384
+      ],
+      "webhookId": "459ff33f-e739-4c19-b6ad-cbd760553316"
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  const randomNum = Math.floor(1000 + Math.random() * 9000);\n  item.json.ticket_id = `TICK-${randomNum}`;\n  item.json.created_at = new Date().toISOString();\n}\nreturn $input.all();"
+      },
+      "id": "2d957dec-de37-49b7-a4b8-4ad4c1d897bf",
+      "name": "Code in JavaScript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI",
+          "mode": "list",
+          "cachedResultName": "Ticket Response",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": []
+        },
+        "options": {}
+      },
+      "id": "9b731908-79ae-49d5-af60-483a72f199a5",
+      "name": "Get Existing Tickets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        448,
+        384
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "K42UiPBg7JhBU8h5",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cur = $('Code in JavaScript').first().json;\nconst body = cur.body || {};\nconst email = String(body.email || '').trim().toLowerCase();\nconst subject = String(body.subject || '').trim().toLowerCase();\n// normalize keys (existing sheet may have leading/trailing spaces in headers)\nconst norm = (o) => { const r = {}; for (const k in o) r[String(k).trim()] = o[k]; return r; };\nconst rows = $('Get Existing Tickets').all().map(i => norm(i.json));\nconst isDuplicate = rows.some(r =>\n  String(r.Email || '').trim().toLowerCase() === email &&\n  email !== '' &&\n  String(r.Subject || '').trim().toLowerCase() === subject\n);\nreturn [{ json: { ...cur, is_duplicate: isDuplicate } }];"
+      },
+      "id": "8433352c-51be-4d7c-8e7f-b23b1a591407",
+      "name": "Detect Duplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI customer support ticket classifier and reply writer.\n\nAnalyze the customer subject and message, then return a single JSON object with:\n- category: one of \"Genuine\", \"Spam\", \"Unclear\"\n- intent: one of \"Order Status\", \"Refund\", \"Payment Issue\", \"Cancellation\", \"Product Question\", \"Complaint\", \"Feedback\", \"Technical Issue\" (best match; if none fits use \"Product Question\")\n- sentiment: one of \"Positive\", \"Neutral\", \"Negative\"\n- urgency: one of \"High\", \"Medium\", \"Low\"\n- summary: one concise sentence describing the issue\n- draft_reply: a professional, empathetic reply PERSONALIZED to the detected intent, urgency and sentiment. If sentiment is Negative or urgency is High, be extra empathetic and assure prioritisation.\n\nCATEGORY / SPAM RULES:\n- Spam: lottery/prize/giveaway/\"you won\", fake promotions, requests for passwords/OTP/PIN/bank/card details, phishing, suspicious links, fake verification, mass-marketing, scams. If ANY match, category MUST be \"Spam\" even with urgent language.\n- Genuine: a real customer asking for help, reporting a problem, complaint, request, or legitimate feedback.\n- Unclear: too vague/incomplete/contradictory to classify confidently.\n\nURGENCY RULES:\n- High: account hacked, fraud, security threat, payment blocking service, service fully down, needs immediate attention.\n- Medium: normal problem/complaint needing support but not critical.\n- Low: general questions, feedback, suggestions, non-urgent.\n\nDUPLICATE AWARENESS:\nis_duplicate = {{ $json.is_duplicate }}. If true, the customer already raised this same issue before — acknowledge it in draft_reply and mention it is being followed up, and lean towards Genuine + higher urgency.\n\nDo NOT classify every message as Genuine. Return ONLY the JSON.\n\nCustomer Subject: {{ $json.body.subject }}\n\nCustomer Message: {{ $json.body.message }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an AI customer support classifier. Always return only the structured JSON with category, intent, sentiment, urgency, summary and draft_reply."
+        }
+      },
+      "id": "848bcd86-72fb-48d1-9f55-d5a11cf9760f",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        960,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "bf2c7538-37e1-467c-be0d-47fc3b75ea63",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        896,
+        608
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "HlGXOMYLqnnNicxI",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.email }}"
+      },
+      "id": "5f4fecfc-0de6-4358-aa39-1f5ab088d137",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        1024,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"category\": \"Genuine\",\n  \"intent\": \"Payment Issue\",\n  \"sentiment\": \"Negative\",\n  \"urgency\": \"High\",\n  \"summary\": \"Customer is having an issue with their subscription renewal payment.\",\n  \"draft_reply\": \"Hello, thank you for reaching out. We are sorry about the trouble with your subscription renewal payment. Our team is prioritising your case and will resolve it shortly.\"\n}"
+      },
+      "id": "dd6449cd-117b-422c-bb74-069baa518f31",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1152,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "90fa092f-8494-463e-a3cc-f9e2902c55c4",
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "Genuine",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3a17d44c-4099-469c-b059-f7b7b190c295",
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "Spam",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "92b8df31-95a7-4fea-93f7-6000eb20393b",
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "Unclear",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "d70a8401-ca2c-4bf4-b840-cb7a8155cb1c",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1360,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "esc-urgency",
+              "leftValue": "={{ $json.output.urgency }}",
+              "rightValue": "High",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "esc-sentiment",
+              "leftValue": "={{ $json.output.sentiment }}",
+              "rightValue": "Negative",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "ea99c4d8-d1af-493a-a21a-5a4d18d138fa",
+      "name": "IF Escalate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1584,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "pathandaniyal33@gmail.com",
+        "subject": "=[ESCALATION] {{ $('AI Agent').item.json.output.urgency }} / {{ $('AI Agent').item.json.output.sentiment }} — Ticket {{ $('Code in JavaScript').item.json.ticket_id }}",
+        "emailType": "text",
+        "message": "=Escalated ticket needs attention.\n\nTicket ID: {{ $('Code in JavaScript').item.json.ticket_id }}\nName: {{ $('Webhook').item.json.body.name }}\nEmail: {{ $('Webhook').item.json.body.email }}\nSubject: {{ $('Webhook').item.json.body.subject }}\nIntent: {{ $('AI Agent').item.json.output.intent }}\nUrgency: {{ $('AI Agent').item.json.output.urgency }}\nSentiment: {{ $('AI Agent').item.json.output.sentiment }}\nSummary: {{ $('AI Agent').item.json.output.summary }}\n\nMessage:\n{{ $('Webhook').item.json.body.message }}",
+        "options": {}
+      },
+      "id": "16e92e39-d6ae-4076-bfc7-2ad29239ef3c",
+      "name": "Send Escalation Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1808,
+        0
+      ],
+      "webhookId": "8184a9c5-5139-4529-94bc-d1dc4e488eeb",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "aqqOtwE0n2vdO7zX",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "=Re: {{ $('Webhook').item.json.body.subject }}",
+        "emailType": "text",
+        "message": "={{ $('AI Agent').item.json.output.draft_reply }}",
+        "options": {}
+      },
+      "id": "613a1187-e329-43df-84a2-056548571017",
+      "name": "Reply to Customer (Escalated)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2032,
+        0
+      ],
+      "webhookId": "b7bc69f2-0e48-41ab-ae34-8fea8b57a78b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "aqqOtwE0n2vdO7zX",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const w = $('Webhook').first().json.body || {};\nconst c = $('Code in JavaScript').first().json;\nconst a = $('AI Agent').first().json.output || {};\nreturn [{ json: {\n  ' Ticket ID': c.ticket_id,\n  ' Name': w.name,\n  ' Email': w.email,\n  ' Subject': w.subject,\n  ' Category': a.category,\n  'Intent': a.intent,\n  ' Urgency': a.urgency,\n  'Sentiment': a.sentiment,\n  'Summary': a.summary,\n  ' Status': 'Escalated',\n  'Draft Reply': a.draft_reply,\n  'Created At': c.created_at\n} }];"
+      },
+      "id": "f1844614-2581-4c88-8e96-651e4178c588",
+      "name": "Build Row (Escalated)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2256,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI",
+          "mode": "list",
+          "cachedResultName": "Ticket Response",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "e2db2257-14b9-41f5-88c0-602a224d6cbc",
+      "name": "Append row (Escalated)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2480,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "K42UiPBg7JhBU8h5",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "=Re: {{ $('Webhook').item.json.body.subject }}",
+        "emailType": "text",
+        "message": "={{ $('AI Agent').item.json.output.draft_reply }}",
+        "options": {}
+      },
+      "id": "5c3bbf75-969e-47ed-a0dd-daecc599813c",
+      "name": "Send a message",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1808,
+        192
+      ],
+      "webhookId": "61de2bb8-2c22-4694-846b-4f6ab5e622df",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "aqqOtwE0n2vdO7zX",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const w = $('Webhook').first().json.body || {};\nconst c = $('Code in JavaScript').first().json;\nconst a = $('AI Agent').first().json.output || {};\nreturn [{ json: {\n  ' Ticket ID': c.ticket_id,\n  ' Name': w.name,\n  ' Email': w.email,\n  ' Subject': w.subject,\n  ' Category': a.category,\n  'Intent': a.intent,\n  ' Urgency': a.urgency,\n  'Sentiment': a.sentiment,\n  'Summary': a.summary,\n  ' Status': 'Replied',\n  'Draft Reply': a.draft_reply,\n  'Created At': c.created_at\n} }];"
+      },
+      "id": "a1b459d6-f5ba-4bc2-8f2c-0bc725a3763b",
+      "name": "Build Row (Replied)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI",
+          "mode": "list",
+          "cachedResultName": "Ticket Response",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "b0c261b5-a1f6-4cf4-bfd1-59d87556dddb",
+      "name": "Append row in sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2256,
+        192
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "K42UiPBg7JhBU8h5",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "=Re: {{ $('Webhook').item.json.body.subject }}",
+        "emailType": "text",
+        "message": "={{ $('AI Agent').item.json.output.draft_reply }}",
+        "options": {}
+      },
+      "id": "da6494c5-e13e-4cb6-916b-9473df46470e",
+      "name": "Send a message2",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1584,
+        384
+      ],
+      "webhookId": "702d6163-e2b1-420c-aed9-0581ca16b470",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "aqqOtwE0n2vdO7zX",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const w = $('Webhook').first().json.body || {};\nconst c = $('Code in JavaScript').first().json;\nconst a = $('AI Agent').first().json.output || {};\nreturn [{ json: {\n  ' Ticket ID': c.ticket_id,\n  ' Name': w.name,\n  ' Email': w.email,\n  ' Subject': w.subject,\n  ' Category': a.category,\n  'Intent': a.intent,\n  ' Urgency': a.urgency,\n  'Sentiment': a.sentiment,\n  'Summary': a.summary,\n  ' Status': 'Spam',\n  'Draft Reply': a.draft_reply,\n  'Created At': c.created_at\n} }];"
+      },
+      "id": "95aae994-2602-4828-9dcf-b6b8a36d2c16",
+      "name": "Build Row (Spam)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI",
+          "mode": "list",
+          "cachedResultName": "Ticket Response",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "58ae28a9-8ed7-4778-9a5d-dd139e61cb81",
+      "name": "Append row in sheet1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2032,
+        384
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "K42UiPBg7JhBU8h5",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "=Re: {{ $('Webhook').item.json.body.subject }}",
+        "emailType": "text",
+        "message": "={{ $('AI Agent').item.json.output.draft_reply }}",
+        "options": {}
+      },
+      "id": "dfb3b1e2-e338-4810-a008-a2939a6967ff",
+      "name": "Send a message1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1584,
+        576
+      ],
+      "webhookId": "a1129392-332e-4de3-983b-c4897b0701a9",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "aqqOtwE0n2vdO7zX",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const w = $('Webhook').first().json.body || {};\nconst c = $('Code in JavaScript').first().json;\nconst a = $('AI Agent').first().json.output || {};\nreturn [{ json: {\n  ' Ticket ID': c.ticket_id,\n  ' Name': w.name,\n  ' Email': w.email,\n  ' Subject': w.subject,\n  ' Category': a.category,\n  'Intent': a.intent,\n  ' Urgency': a.urgency,\n  'Sentiment': a.sentiment,\n  'Summary': a.summary,\n  ' Status': 'In Progress',\n  'Draft Reply': a.draft_reply,\n  'Created At': c.created_at\n} }];"
+      },
+      "id": "a9a41e8e-1729-44fb-8f0d-c895fe12ebdd",
+      "name": "Build Row (Unclear)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI",
+          "mode": "list",
+          "cachedResultName": "Ticket Response",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI/edit#gid=0"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sgEC48rLqTtQhqQpvk-irsqhLqDnk3VT6HMqYnmRdPI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "ee7d3811-8116-429a-8033-a5a7190ddd2d",
+      "name": "Append row in sheet2",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2032,
+        576
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "K42UiPBg7JhBU8h5",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Tickets": {
+      "main": [
+        [
+          {
+            "node": "Detect Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Duplicate": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "IF Escalate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Escalate": {
+      "main": [
+        [
+          {
+            "node": "Send Escalation Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Escalation Alert": {
+      "main": [
+        [
+          {
+            "node": "Reply to Customer (Escalated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply to Customer (Escalated)": {
+      "main": [
+        [
+          {
+            "node": "Build Row (Escalated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Row (Escalated)": {
+      "main": [
+        [
+          {
+            "node": "Append row (Escalated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Build Row (Replied)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Row (Replied)": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message2": {
+      "main": [
+        [
+          {
+            "node": "Build Row (Spam)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Row (Spam)": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        [
+          {
+            "node": "Build Row (Unclear)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Row (Unclear)": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "dd301512-11cc-47c8-8beb-7964d10e5a44",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e2cbb80928f0e775a4363140e0a930700dfe99b4b0da000930510c171bd7966b"
+  },
+  "nodeGroups": [],
+  "id": "fVEIRCoqlH6cIMzq",
+  "tags": []
+}
