@@ -7,6 +7,9 @@ An AI-powered LinkedIn automation workflow built with **n8n** that automatically
 This automation takes pending content ideas from **Google Sheets**, finds the related image from **Google Drive**, generates a professional LinkedIn caption using **AI**, publishes the post on **LinkedIn**, and finally updates the Google Sheet to mark the content as **Posted**.
 
 ## 🔄 Workflow
+### 📸 Workflow Preview
+
+![LinkedIn Workflow](LinkedIn%20Workflow%20Screenshot.jpg)
 
 ```text
 Schedule Trigger
