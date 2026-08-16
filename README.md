@@ -77,3 +77,14 @@ LinkedIn Workflow Automation.json
 🎯 Use Case
 This automation is useful for developers, creators, agencies, and businesses that want to maintain a consistent LinkedIn presence without manually creating and publishing every post.
 ⭐ If you find this workflow useful, feel free to star the repository!
+
+
+---
+
+## 🤖 AI Content Automation System
+
+An end-to-end automated pipeline built in **n8n** that uses **AI** to generate, schedule, and distribute content across channels automatically.
+
+* **File:** [`AI Content Automation System.json`](./AI%20Content%20Automation%20System.json)
+* **Key Features:** Automated content generation, multi-channel scheduling, and status tracking.
+*
