@@ -88,10 +88,9 @@ The system receives a user's content request through a Webhook, uses OpenAI GPT-
 «Current implementation: AI image generation using "grok-imagine/text-to-image".»
 
 ---
+## 📸 Workflow Preview
 
-📸 Workflow Preview
-
-"![AI Content Automation Workflow](./AI-Content-Automation.jpg.jpg)
+![AI Content Automation Workflow](https://github.com/DaniyalKhan-ai/DaniyalKhan-ai/blob/main/AI-Content-Automation.jpg.jpg?raw=true)
 
 ---
 
