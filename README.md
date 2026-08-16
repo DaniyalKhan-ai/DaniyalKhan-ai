@@ -1,3 +1,4 @@
+
  # 🚀 AI LinkedIn Auto-Posting Automation with n8n
 
 An AI-powered LinkedIn automation workflow built with **n8n** that automatically creates and publishes LinkedIn posts on a scheduled basis.
@@ -90,7 +91,8 @@ The system receives a user's content request through a Webhook, uses OpenAI GPT-
 ---
 ## 📸 Workflow Preview
 
-![AI Content Automation Workflow](https://github.com/DaniyalKhan-ai/DaniyalKhan-ai/blob/main/AI-Content-Automation.jpg.jpg?raw=true)
+ <img width="1524" height="462" alt="AI-Content-Automation jpg" src="https://github.com/user-attachments/assets/56b4971f-5abb-448b-a359-a80fb034af3e" />
+
 
 ---
 
